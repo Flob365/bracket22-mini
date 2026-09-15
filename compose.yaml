@@ -1,0 +1,33 @@
+services:
+  db:
+    image: postgres:17
+    environment:
+      POSTGRES_USER: bracket
+      POSTGRES_PASSWORD: bracket_local
+      POSTGRES_DB: bracket22_real
+    volumes:
+      - postgres_real_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U bracket -d bracket22_real"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+  api:
+    build: .
+    ports: ["127.0.0.1:8000:8000"]
+    environment: &environment
+      DATABASE_URL: postgresql+psycopg://bracket:bracket_local@db:5432/bracket22_real
+      MARKET_DATA_PROVIDER: yahoo
+      BRACKET22_API_TOKEN: ${BRACKET22_API_TOKEN:-}
+    depends_on:
+      db:
+        condition: service_healthy
+  scheduler:
+    build: .
+    command: ["python", "-m", "bracket22.scheduler"]
+    environment: *environment
+    depends_on:
+      db:
+        condition: service_healthy
+volumes:
+  postgres_real_data:

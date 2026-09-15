@@ -1,0 +1,10 @@
+.venv
+.git
+*.db
+.env
+__pycache__
+.pytest_cache
+
+market-cache/
+
+.env.*
