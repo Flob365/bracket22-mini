@@ -157,12 +157,12 @@ SpaceX (SPCX), Walmart (WMT) et Lam Research (LRCX) sont ajoutés. Le contrôle 
 
 Le nouvel onglet « Rôle des agents » explique Steffi, Desmond, Red Team, Houston, les outils Python, le moteur de risque et la validation humaine. La performance reste accessible dans un onglet séparé. La navigation est aussi disponible sur mobile.
 
-## Hébergement Render — configuration préparée, non déployée
+## Hébergement gratuit — configuration préparée, non déployée
 
-`render.yaml` définit un service Docker Python (2 Go), une base PostgreSQL privée et une tâche planifiée à chaque heure de 07:00 à 23:00 UTC. Le planificateur ne recalcule pas une journée terminée avec succès ; il permet la reprise d'un traitement incomplet. Cette configuration crée des ressources payantes : vérifier le devis Render avant application.
+`render.yaml` définit uniquement un service Docker Python Render Free. Il ne crée aucune base Render ni tâche planifiée payante. Fournir `DATABASE_URL` depuis un projet PostgreSQL Neon Free (connexion TLS). La base gratuite Render expire après 30 jours et n'est donc pas retenue pour le journal.
 
-Le site refuse de démarrer en mode hébergé sans jeton d'accès de 32 caractères minimum. Render génère `BRACKET22_API_TOKEN` ; le propriétaire le saisit dans le formulaire du desk. La clé OpenAI doit être configurée séparément comme secret du service web et de la tâche planifiée, jamais dans Git. Les URL PostgreSQL du fournisseur sont adaptées au pilote psycopg installé.
+Render Free se met en veille après 15 minutes sans requête ; le premier accès est plus lent. Ses ressources sont limitées : le fonctionnement de la pile scientifique doit être vérifié sur l'instance. Les analyses se lancent manuellement depuis le desk ; aucune exécution quotidienne automatique distante n'est configurée dans cette formule. Les quotas gratuits Render et Neon s'appliquent. Les appels OpenAI restent facturés séparément.
 
-Étapes restantes : compte Render, dépôt privé connecté contenant le projet, validation du tarif, ajout des secrets, migration contrôlée du journal SQLite existant vers PostgreSQL, déploiement et vérification de l'URL HTTPS. Ne pas remplacer la base locale ni arrêter définitivement son planificateur avant validation du transfert ; l'arrêter après bascule évite des analyses facturées en double.
+Le site refuse de démarrer en mode hébergé sans jeton d'accès de 32 caractères minimum. Render génère `BRACKET22_API_TOKEN` ; le propriétaire le saisit dans le formulaire du desk. Configurer `OPENAI_API_KEY` et `DATABASE_URL` comme secrets Render, jamais dans Git. Les URL PostgreSQL sont adaptées au pilote psycopg installé.
 
-Le compte d'hébergement n'est pas encore créé. Aucun service distant, abonnement, téléversement de clé ou migration de données n'a été effectué pendant la préparation.
+Le compte Render et le dépôt privé GitHub sont prêts. Restent : créer le projet Neon Free, renseigner les secrets, migrer de façon contrôlée le journal SQLite existant, déployer et vérifier l'URL HTTPS. Aucune ressource distante ni migration n'est encore validée. Conserver la base locale ; après la bascule, désactiver son planificateur pour éviter les analyses facturées en double.

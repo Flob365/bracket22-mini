@@ -1,17 +1,16 @@
-# Deployment creates paid resources. Review the Render quote before applying.
+# Free web service. Supply a free external PostgreSQL URL (for example Neon).
+# No paid database or cron resources are created.
 services:
   - type: web
     name: bracket22-mini
     runtime: docker
     region: frankfurt
-    plan: 1c-2g
+    plan: free
     healthCheckPath: /health
     dockerCommand: uvicorn bracket22.app:app --host 0.0.0.0 --port 8000
     envVars:
       - key: DATABASE_URL
-        fromDatabase:
-          name: bracket22-db
-          property: connectionString
+        sync: false
       - key: MARKET_DATA_PROVIDER
         value: yahoo
       - key: AGENT_MODE
@@ -22,28 +21,3 @@ services:
         generateValue: true
       - key: OPENAI_API_KEY
         sync: false
-  - type: cron
-    name: bracket22-daily
-    runtime: docker
-    region: frankfurt
-    plan: 0.5c-512mb
-    schedule: "0 7-23 * * *"
-    dockerCommand: python -m bracket22.run_scheduled
-    envVars:
-      - key: DATABASE_URL
-        fromDatabase:
-          name: bracket22-db
-          property: connectionString
-      - key: MARKET_DATA_PROVIDER
-        value: yahoo
-      - key: AGENT_MODE
-        value: llm
-      - key: OPENAI_API_KEY
-        sync: false
-databases:
-  - name: bracket22-db
-    region: frankfurt
-    plan: 0.1c-256mb
-    databaseName: bracket22
-    user: bracket22
-    ipAllowList: []
