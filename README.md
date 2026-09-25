@@ -128,10 +128,10 @@ La configuration demandée est implémentée dans `bracket22/llm.py` :
 
 | Agent | Modèle | Effort |
 |---|---|---|
-| Steffi | gpt-5.6-luna | max |
-| Desmond | gpt-5.6-luna | max |
-| Red Team | gpt-5.6-sol | high |
-| Houston | gpt-5.6-sol | high |
+| Steffi | gpt-6-luna | max |
+| Desmond | gpt-6-luna | max |
+| Red Team | gpt-6-sol | medium |
+| Houston | gpt-6-sol | medium |
 
 Le backend charge `OPENAI_API_KEY` et `AGENT_MODE=llm` depuis `.env.local` à la racine du projet, ou depuis les variables d'environnement qui ont priorité. Le fichier est ignoré par Git et exclu du contexte Docker. Ne jamais y ajouter une clé dans un fichier suivi. En conteneur, injecter ces deux variables au démarrage. Sans mode explicite, les agents restent déterministes ; `AGENT_MODE=deterministic` permet d'y revenir.
 
@@ -141,7 +141,7 @@ Chaque rapport journalise le modèle, l'effort, les identifiants de réponse et 
 
 L'ancienne recherche déterministe reste dans le journal. Les rapports LLM ont une version distincte et ne réutilisent pas les décisions déterministes de la journée. Les statistiques des agents sont filtrées sur la version active. L'interface affiche combien de derniers rapports sont réellement issus des LLM et permet d'analyser un seul actif depuis son dossier. Le bouton quotidien lance tout l'univers ; la planification utilise la même configuration après redémarrage.
 
-Documentation officielle : [Luna](https://developers.openai.com/api/docs/models/gpt-5.6-luna), [Sol](https://developers.openai.com/api/docs/models/gpt-5.6-sol), [appels d'outils](https://developers.openai.com/api/docs/guides/function-calling).
+Documentation officielle : [Luna](https://developers.openai.com/api/docs/models/gpt-6-luna), [Sol](https://developers.openai.com/api/docs/models/gpt-6-sol), [appels d'outils](https://developers.openai.com/api/docs/guides/function-calling).
 
 ### Requêtes simultanées
 
