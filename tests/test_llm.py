@@ -20,8 +20,8 @@ def test_llm_roles_must_call_python_and_preserve_red_veto():
     bars = feed.history('SPY', date(2026,9,11))
     result = adapter.run(bars,bars)
     assert len(calls) == 8
-    assert [c['model'] for c in calls[::2]] == ['gpt-5.6-luna']*2 + ['gpt-5.6-sol']*2
-    assert [c['reasoning']['effort'] for c in calls[::2]] == ['max']*2+['high']*2
+    assert [c['model'] for c in calls[::2]] == ['gpt-6-luna']*2 + ['gpt-6-sol']*2
+    assert [c['reasoning']['effort'] for c in calls[::2]] == ['max']*2+['medium']*2
     assert result['Steffi']['metrics']['sma200'] > 0
     assert result['Houston']['mode'] == 'llm'
     assert all(c['store'] is False for c in calls)
