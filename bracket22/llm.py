@@ -19,16 +19,16 @@ class Assessment(BaseModel):
 
 
 MODELS = {
-    'Steffi': ('gpt-5.6-luna', 'max'),
-    'Desmond': ('gpt-5.6-luna', 'max'),
-    'Red Team': ('gpt-5.6-sol', 'high'),
-    'Houston': ('gpt-5.6-sol', 'high'),
+    'Steffi': ('gpt-6-luna', 'max'),
+    'Desmond': ('gpt-6-luna', 'max'),
+    'Red Team': ('gpt-6-sol', 'medium'),
+    'Houston': ('gpt-6-sol', 'medium'),
 }
 
 
 class LLMHouston:
     mode = 'llm'
-    version = 'llm-luna-max-sol-high-v1'
+    version = 'llm-gpt6-luna-max-sol-medium-v1'
 
     def __init__(self, client=None, api_key=None):
         self.client = client or OpenAI(api_key=api_key, base_url='https://api.openai.com/v1',
