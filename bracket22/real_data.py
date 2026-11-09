@@ -96,6 +96,21 @@ class YahooProvider(MarketDataProvider):
             session = self.calendar.previous_session(session)
         return session.date()
 
+    def expected_sessions(self, symbol, start, end):
+        # Bulk equivalent of calling expected_date for every calendar day of the range.
+        if symbol not in UNIVERSE:
+            raise KeyError(symbol)
+        now = self.now()
+        if end > now.date():
+            raise ValueError("Future as_of is not permitted")
+        if UNIVERSE[symbol].crypto:
+            last = min(end, now.date() - timedelta(days=1))
+            return [start + timedelta(days=i) for i in range((last - start).days + 1)]
+        sessions = list(self.calendar.sessions_in_range(start.isoformat(), end.isoformat()))
+        while sessions and self.calendar.session_close(sessions[-1]).to_pydatetime() + timedelta(minutes=30) > now:
+            sessions.pop()
+        return [s.date() for s in sessions]
+
     def history(self, symbol, as_of):
         last = self.expected_date(symbol, as_of)
         ticker = {"BTC": "BTC-USD", "ETH": "ETH-USD"}.get(symbol, symbol)

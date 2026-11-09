@@ -1,12 +1,15 @@
+import json
 import math
+import threading
 import uuid
 from abc import ABC, abstractmethod
-from datetime import UTC, date, datetime, timedelta
+from contextlib import contextmanager
+from datetime import UTC, date, datetime
 
 from sqlalchemy import select
 
 from .agents import Houston
-from .core import ACTIVE_SYMBOLS, ASSETS, UNIVERSE, RiskEngine, SampleProvider
+from .core import ACTIVE_SYMBOLS, ASSETS, UNIVERSE, Bar, RiskEngine, SampleProvider
 from .storage import Store, canonical, measurements, reports
 
 
@@ -46,9 +49,12 @@ class Service:
         self.houston = houston or Houston()
         self.version = getattr(self.houston, "version", "v1")
         self.paper = PaperBroker()
+        # Reports are immutable once stored: decoded summaries are kept for the process lifetime.
+        self._reports, self._reports_lock = {}, threading.Lock()
+        self._local = threading.local()
         with self.store.transaction() as conn:
-            sources = {r["provider"] for r in self.store.all_reports(conn)}
-            bindings = [e for e in self.store.all_events(conn) if e["kind"] == "SOURCE_BOUND"]
+            sources = {r["provider"] for r in self._index(conn)}
+            bindings = self.store.events_of(conn, "SOURCE_BOUND")
             sources.update(e["payload"]["provider"] for e in bindings)
             if sources - {self.provider.name}:
                 raise ValueError("Cannot mix market data sources; use a separate database")
@@ -60,23 +66,70 @@ class Service:
             raise KeyError(symbol)
         return UNIVERSE[symbol]
 
+    def _index(self, conn):
+        """Summaries of every stored report; only reports not seen yet are read and decoded."""
+        with self._reports_lock:
+            ids = conn.execute(select(reports.c.id)).scalars().all()
+            missing = [i for i in ids if i not in self._reports]
+            for start in range(0, len(missing), 50):
+                chunk = missing[start:start + 50]
+                for raw in conn.execute(select(reports.c.payload).where(reports.c.id.in_(chunk))).scalars():
+                    report = json.loads(raw)
+                    entry = self.summary(report)
+                    bars = (report.get("market_snapshot") or {}).get("bars") or []
+                    bench = (report.get("benchmark_snapshot") or {}).get("bars") or []
+                    # Private derived fields; stripped from API output by `public`.
+                    entry["_invalid"] = self.invalid_data(report)
+                    entry["_benchmark"] = (bench[-1]["day"], bench[-1]["close"]) if bench else None
+                    entry["_sparkline"] = [b["close"] for b in bars[-60:]]
+                    self._reports[entry["id"]] = entry
+            return [self._reports[i] for i in ids]
+
+    @staticmethod
+    def public(entry):
+        return {k: v for k, v in entry.items() if not k.startswith("_")}
+
+    @contextmanager
+    def _scope(self):
+        """One business operation validates each market series once (reentrant)."""
+        if getattr(self._local, "markets", None) is not None:
+            yield
+            return
+        self._local.markets = {}
+        try:
+            yield
+        finally:
+            self._local.markets = None
+
     def market(self, symbol, day=None):
-        asset, day = self.asset(symbol), day or self.today()
+        day = day or self.today()
+        memo = getattr(self._local, "markets", None)
+        if memo is None:
+            return self._market(symbol, day)
+        if (symbol, day) not in memo:
+            memo[symbol, day] = self._market(symbol, day)
+        return memo[symbol, day]
+
+    def _bars(self, symbol, day=None):
+        """Validated bars of a market series, built once per business operation."""
+        day = day or self.today()
+        market, memo = self.market(symbol, day), getattr(self._local, "markets", None)
+        if memo is None:
+            return [Bar.model_validate(b) for b in market["bars"]]
+        if ("bars", symbol, day) not in memo:
+            memo["bars", symbol, day] = [Bar.model_validate(b) for b in market["bars"]]
+        return memo["bars", symbol, day]
+
+    def _market(self, symbol, day):
+        asset = self.asset(symbol)
         bars = self.provider.history(symbol, day)
         if any(b.day > day for b in bars):
             raise ValueError("Provider returned future data")
         dates = [b.day for b in bars]
         if dates != sorted(set(dates)):
             raise ValueError("Unsorted or duplicate market dates")
-        if bars:
-            expected = []
-            cursor = bars[0].day
-            while cursor <= bars[-1].day:
-                if self.provider.expected_date(symbol, cursor) == cursor:
-                    expected.append(cursor)
-                cursor += timedelta(days=1)
-            if dates != expected:
-                raise ValueError("Missing market sessions")
+        if bars and dates != self.provider.expected_sessions(symbol, bars[0].day, bars[-1].day):
+            raise ValueError("Missing market sessions")
         fx = self.provider.fx_to_eur(asset.currency, day)
         if not math.isfinite(fx) or fx <= 0:
             raise ValueError("Invalid FX")
@@ -93,7 +146,8 @@ class Service:
 
     def _portfolio(self, conn):
         cash, positions, trades = 100000.0, {}, []
-        for event in self.store.all_events(conn):
+        index = None
+        for event in self.store.events_of(conn, "PAPER_BUY", "PAPER_CLOSE"):
             p = event["payload"]
             if event["kind"] == "PAPER_BUY":
                 cash -= p["notional_eur"]
@@ -105,7 +159,9 @@ class Service:
                 trades.append(p)
         missing, stale = False, False
         for symbol, pos in positions.items():
-            report = self.store.report(conn, pos["report_id"])
+            if index is None:
+                index = {r["id"]: r for r in self._index(conn)}
+            report = index[pos["report_id"]]
             reference_day = date.fromisoformat(pos.get("reference_day", pos["day"]))
             pos.update(entry_price=pos["price"], current_price=None, current_fx_to_eur=None,
                        holding_days=(self.today() - date.fromisoformat(pos["day"])).days,
@@ -163,7 +219,7 @@ class Service:
         }
 
     def portfolio(self):
-        with self.store.engine.connect() as conn:
+        with self._scope(), self.store.engine.connect() as conn:
             return self._portfolio(conn)
 
     def _risk(self, conn, report, stale=False, missing=False):
@@ -204,22 +260,19 @@ class Service:
         day = self.today()
         key = f"{symbol}:{day}:{self.version}"
         # Calculations are inside the transaction so concurrent calls produce one decision.
-        with self.store.transaction() as conn:
-            attempts = [r for r in self.store.all_reports(conn)
+        with self._scope(), self.store.transaction() as conn:
+            attempts = [r for r in self._index(conn)
                         if r["symbol"] == symbol and r["day"] == day.isoformat()
                         and r["version"] == self.version]
             existing = max(attempts, key=lambda r: r["created_at"], default=None)
-            if existing and not self.invalid_data(existing):
-                return existing
+            if existing and not existing["_invalid"]:
+                return self.store.report(conn, existing["id"])
             if existing:
                 key += f":retry:{len(attempts)}"
             market, benchmark, agents, error = None, None, None, None
             try:
                 market, benchmark = self.market(symbol, day), self.market("SPY", day)
-                from .core import Bar
-
-                bars = [Bar.model_validate(b) for b in market["bars"]]
-                bench = [Bar.model_validate(b) for b in benchmark["bars"]]
+                bars, bench = self._bars(symbol, day), self._bars("SPY", day)
                 if len(bars) < 260 or len(bench) < 260:
                     raise ValueError(f"Historique insuffisant : {len(bars)} séances pour l’actif ; 260 requises.")
                 agents = self.houston.run(bars, bench, UNIVERSE[symbol].crypto)
@@ -271,6 +324,10 @@ class Service:
             return report
 
     def daily(self):
+        with self._scope():
+            return self._daily()
+
+    def _daily(self):
         output, errors = [], []
         for symbol in (a.symbol for a in ASSETS):
             try:
@@ -303,7 +360,10 @@ class Service:
 
     def operations(self):
         with self.store.engine.connect() as conn:
-            runs = [e["payload"] for e in self.store.all_events(conn) if e["kind"] == "DAILY_RUN"]
+            return self._operations(conn)
+
+    def _operations(self, conn):
+        runs = [e["payload"] for e in self.store.events_of(conn, "DAILY_RUN")]
         successful = [r for r in runs if not r["errors"]]
         return {"last_run": runs[-1] if runs else None,
                 "last_success": successful[-1] if successful else None,
@@ -316,30 +376,39 @@ class Service:
 
     def latest(self):
         with self.store.engine.connect() as conn:
-            rows = self.store.all_reports(conn)
-            events = self.store.all_events(conn)
-        latest = {}
-        for report in sorted(rows, key=lambda r: (r["day"], r["created_at"])):
-            if report["symbol"] in ACTIVE_SYMBOLS:
-                latest[report["symbol"]] = self.summary(report)
+            return self._latest(conn)
+
+    def _latest(self, conn):
+        newest = {}
+        for report in self._index(conn):
+            current = newest.get(report["symbol"])
+            if report["symbol"] in ACTIVE_SYMBOLS and (
+                current is None
+                or (report["day"], report["created_at"]) >= (current["day"], current["created_at"])
+            ):
+                newest[report["symbol"]] = report
         reviews = {
-            e["payload"]["report_id"]: e["payload"]["action"] for e in events if e["kind"] == "HUMAN_REVIEW"
+            e["payload"]["report_id"]: e["payload"]["action"]
+            for e in self.store.events_of(conn, "HUMAN_REVIEW")
         }
-        for r in latest.values():
-            r["human_review"] = reviews.get(r["id"], "pending")
+        latest = {}
+        for symbol, report in newest.items():
+            latest[symbol] = self.public(report)
+            latest[symbol]["sparkline"] = report["_sparkline"]
+            latest[symbol]["human_review"] = reviews.get(report["id"], "pending")
         return sorted(latest.values(), key=lambda r: r["agents"]["Houston"]["score"], reverse=True)
 
     def review(self, report_id, action, reason=""):
         failure = None
-        with self.store.transaction() as conn:
-            report = self.store.report(conn, report_id)
+        with self._scope(), self.store.transaction() as conn:
+            report = next((r for r in self._index(conn) if r["id"] == report_id), None)
             if not report:
                 raise KeyError(report_id)
             if action == "approve" and report["symbol"] not in ACTIVE_SYMBOLS:
                 raise Conflict("Actif retiré de l’univers suivi")
             if any(
-                e["kind"] == "HUMAN_REVIEW" and e["payload"]["report_id"] == report_id
-                for e in self.store.all_events(conn)
+                e["payload"]["report_id"] == report_id
+                for e in self.store.events_of(conn, "HUMAN_REVIEW")
             ):
                 raise Conflict("Proposition déjà examinée")
             if action == "reject":
@@ -385,7 +454,7 @@ class Service:
 
     def close(self, symbol):
         self.asset(symbol)
-        with self.store.transaction() as conn:
+        with self._scope(), self.store.transaction() as conn:
             position = next((p for p in self._portfolio(conn)["positions"] if p["symbol"] == symbol), None)
             if not position:
                 raise Conflict("Aucune position ouverte")
@@ -410,17 +479,18 @@ class Service:
     def refresh(self):
         added = 0
         errors = []
-        with self.store.transaction() as conn:
-            for r in self.store.all_reports(conn):
-                if r["symbol"] not in ACTIVE_SYMBOLS or r["reference_price"] is None or self.invalid_data(r):
+        horizons = (1, 5, 20, 60)
+        with self._scope(), self.store.transaction() as conn:
+            done = set(conn.execute(select(measurements.c.key)).scalars())
+            for r in self._index(conn):
+                if r["symbol"] not in ACTIVE_SYMBOLS or r["reference_price"] is None or r["_invalid"]:
+                    continue
+                if all(f"{r['id']}:{h}" in done for h in horizons):
                     continue
                 day = date.fromisoformat(r.get("reference_day") or r["day"])
                 try:
-                    from .core import Bar
-
-                    bars = [Bar.model_validate(b) for b in self.market(r["symbol"])["bars"]]
-                    benchmark = [Bar.model_validate(b) for b in self.market("SPY")["bars"]]
-                    bench_ref_day = date.fromisoformat(r["benchmark_snapshot"]["bars"][-1]["day"])
+                    bars, benchmark = self._bars(r["symbol"]), self._bars("SPY")
+                    bench_ref_day = date.fromisoformat(r["_benchmark"][0])
                     asset_split = self.provider.split_factor(r["symbol"], day, self.today())
                     bench_split = self.provider.split_factor("SPY", bench_ref_day, self.today())
                     if any(not math.isfinite(v) or v <= 0 for v in (asset_split, bench_split)):
@@ -429,13 +499,10 @@ class Service:
                     errors.append({"symbol": r["symbol"], "error": str(exc)})
                     continue
                 future = [b for b in bars if day < b.day <= self.today()]
-                ref_bench = r["benchmark_snapshot"]["bars"][-1]["close"]
-                for horizon in (1, 5, 20, 60):
+                ref_bench = r["_benchmark"][1]
+                for horizon in horizons:
                     key = f"{r['id']}:{horizon}"
-                    if (
-                        len(future) < horizon
-                        or conn.execute(select(measurements.c.key).where(measurements.c.key == key)).first()
-                    ):
+                    if len(future) < horizon or key in done:
                         continue
                     end = future[horizon - 1]
                     bench_at_end = [b for b in benchmark if b.day <= end.day]
@@ -470,26 +537,46 @@ class Service:
                     added += 1
         return {"added": added, "errors": errors}
 
-    def performance(self):
-        import json
+    def _observations(self, conn):
+        return [
+            json.loads(p)
+            for p in conn.execute(select(measurements.c.payload).order_by(measurements.c.key)).scalars()
+        ]
 
-        with self.store.engine.connect() as conn:
-            observations = [
-                json.loads(p)
-                for p in conn.execute(select(measurements.c.payload).order_by(measurements.c.key)).scalars()
-            ]
-        return {
-            "portfolio": self.portfolio(),
-            "observations": observations,
-            "convention": "sessions after reference close; split-adjusted price returns, dividends excluded; SPY benchmark",
-            "provider": self.provider.name,
-        }
+    def performance(self):
+        with self._scope(), self.store.engine.connect() as conn:
+            return {
+                "portfolio": self._portfolio(conn),
+                "observations": self._observations(conn),
+                "convention": "sessions after reference close; split-adjusted price returns, dividends excluded; SPY benchmark",
+                "provider": self.provider.name,
+            }
 
     def agent_performance(self):
         with self.store.engine.connect() as conn:
-            report_map = {r["id"]: r for r in self.store.all_reports(conn)
-                          if r["symbol"] in ACTIVE_SYMBOLS and r["version"] == self.version and not self.invalid_data(r)}
-        observations = self.performance()["observations"]
+            return self._agent_performance(conn)
+
+    def dashboard(self, events=12):
+        """Everything the desk screen needs, from one connection and one pass over the data."""
+        journal = self.store.verify(incremental=True)
+        with self._scope(), self.store.engine.connect() as conn:
+            journal["events"] = self.store.recent_events(conn, events)
+            return {
+                "reports": self._latest(conn),
+                "portfolio": self._portfolio(conn),
+                "agents": self._agent_performance(conn),
+                "journal": journal,
+                "operations": self._operations(conn),
+                "assets": [a.model_dump() for a in ASSETS],
+                "agent_mode": getattr(self.houston, "mode", "deterministic-demo"),
+                "agent_models": getattr(self.houston, "models", None),
+                "provider": self.provider.name,
+            }
+
+    def _agent_performance(self, conn):
+        report_map = {r["id"]: r for r in self._index(conn)
+                      if r["symbol"] in ACTIVE_SYMBOLS and r["version"] == self.version and not r["_invalid"]}
+        observations = self._observations(conn)
         output = {}
         for name in ("Steffi", "Desmond", "Red Team", "Houston"):
             signals = [r for r in report_map.values() if r["agents"].get(name, {}).get("signal")]
