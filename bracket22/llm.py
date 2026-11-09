@@ -1,5 +1,6 @@
 """Bounded LLM interpretation of deterministic evidence; no execution tools."""
 import json
+from concurrent.futures import ThreadPoolExecutor
 from typing import Literal
 
 from openai import APIError, OpenAI
@@ -29,6 +30,7 @@ MODELS = {
 class LLMHouston:
     mode = 'llm'
     version = 'llm-gpt6-luna-max-sol-medium-v1'
+    models = MODELS
 
     def __init__(self, client=None, api_key=None):
         self.client = client or OpenAI(api_key=api_key, base_url='https://api.openai.com/v1',
@@ -88,12 +90,18 @@ class LLMHouston:
 
     def run(self, bars, benchmark, crypto=False):
         annualization = 365 if crypto else 252
-        steffi, original = self.assess('Steffi', lambda: Steffi().run(self.tools, bars, benchmark, annualization))
+        # The two specialists are independent: query them concurrently, then continue in sequence.
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            technical = pool.submit(self.assess, 'Steffi',
+                                    lambda: Steffi().run(self.tools, bars, benchmark, annualization))
+            quant = pool.submit(self.assess, 'Desmond',
+                                lambda: Desmond().run(self.tools, bars, benchmark, annualization))
+            steffi, original = technical.result()
+            desmond, quant_original = quant.result()
         steffi.update(metrics=original['metrics'], support=original['support'],
                       resistance=original['resistance'], trend=original['trend'])
         steffi['signal'] = steffi['recommendation'] == 'candidate'
-        desmond, original = self.assess('Desmond', lambda: Desmond().run(self.tools, bars, benchmark, annualization))
-        desmond['metrics'] = original['metrics']
+        desmond['metrics'] = quant_original['metrics']
         desmond['signal'] = desmond['recommendation'] == 'candidate'
         baseline = RedTeam().run(steffi, desmond)
         red, _ = self.assess('Red Team', lambda: {'technical':steffi,'quant':desmond,'checks':baseline})

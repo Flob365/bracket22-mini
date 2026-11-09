@@ -82,6 +82,11 @@ class MarketDataProvider(ABC):
     def split_factor(self, symbol: str, reference_day: date, as_of: date) -> float:
         return 1.0
 
+    def expected_sessions(self, symbol: str, start: date, end: date) -> list[date]:
+        """Dates in [start, end] on which a completed bar is expected. Providers may override in bulk."""
+        days = (start + timedelta(days=i) for i in range((end - start).days + 1))
+        return [day for day in days if self.expected_date(symbol, day) == day]
+
     @abstractmethod
     def history(self, symbol: str, as_of: date) -> list[Bar]: ...
 

@@ -166,3 +166,12 @@ Render Free se met en veille après 15 minutes sans requête ; le premier accès
 Le site refuse de démarrer en mode hébergé sans jeton d'accès de 32 caractères minimum. Render génère `BRACKET22_API_TOKEN` ; le propriétaire le saisit dans le formulaire du desk. Configurer `OPENAI_API_KEY` et `DATABASE_URL` comme secrets Render, jamais dans Git. Les URL PostgreSQL sont adaptées au pilote psycopg installé.
 
 Le compte Render et le dépôt privé GitHub sont prêts. Restent : créer le projet Neon Free, renseigner les secrets, migrer de façon contrôlée le journal SQLite existant, déployer et vérifier l'URL HTTPS. Aucune ressource distante ni migration n'est encore validée. Conserver la base locale ; après la bascule, désactiver son planificateur pour éviter les analyses facturées en double.
+
+## Performance et interface — 9 novembre 2026
+
+- `GET /dashboard` fournit en un seul appel tout ce qu’affiche le desk (radar, portefeuille, performance des agents, suivi, 12 derniers événements). L’interface n’utilise plus que cet appel ; les autres routes restent inchangées.
+- Les rapports étant immuables, leurs résumés sont décodés une seule fois par processus. Les lectures du journal sont filtrées par type en SQL (index `events_kind`, créé au démarrage, sans modification des données). Le temps d’une analyse quotidienne ne dépend plus de la taille de l’historique.
+- Le tableau de bord vérifie la chaîne SHA-256 de façon incrémentale : la première vérification du processus est complète, les suivantes contrôlent le point d’ancrage puis les nouveaux événements. `GET /journal` effectue toujours la vérification complète ; `GET /journal?limit=N` renvoie les N derniers événements sous forme compacte.
+- En mode LLM, Steffi et Desmond sont interrogés en parallèle ; Red Team puis Houston restent séquentiels.
+- Réponses compressées (gzip) ; fichiers statiques revalidés par ETag (`Cache-Control: no-cache`), données d’API toujours `no-store`.
+- Interface : thème clair/sombre, courbes 60 séances, filtres du radar, dossier en tiroir latéral, confirmation en deux clics pour approuver, refuser ou clôturer.

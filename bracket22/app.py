@@ -4,7 +4,8 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Literal
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Query, Request
+from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, ConfigDict, Field
@@ -34,6 +35,7 @@ def create_app(database_url=None, provider=None, today=None):
         app.state.service.store.engine.dispose()
 
     app = FastAPI(title="Bracket22 Mini • Paper only", version="0.1.0", lifespan=lifespan)
+    app.add_middleware(GZipMiddleware, minimum_size=1024)
     static = Path(__file__).parent / "static"
     app.mount("/static", StaticFiles(directory=static), name="static")
 
@@ -56,7 +58,9 @@ def create_app(database_url=None, provider=None, today=None):
         response.headers["Content-Security-Policy"] = (
             "default-src 'self'; style-src 'self'; script-src 'self'; frame-ancestors 'none'"
         )
-        response.headers["Cache-Control"] = "no-store"
+        # Static assets are revalidated with their ETag (304 when unchanged); API data is never cached.
+        static_asset = request.url.path == "/" or request.url.path.startswith("/static/")
+        response.headers["Cache-Control"] = "no-cache" if static_asset else "no-store"
         if request.url.path in ("/docs", "/redoc"):
             response.headers["Content-Security-Policy"] = (
                 "default-src 'self'; script-src 'self' https://cdn.jsdelivr.net 'unsafe-inline'; "
@@ -88,6 +92,10 @@ def create_app(database_url=None, provider=None, today=None):
     @app.get("/health")
     def health():
         return {"status": "ok", "mode": "paper", "provider": service().provider.name, "agent_mode": getattr(service().houston, "mode", "deterministic-demo")}
+
+    @app.get("/dashboard")
+    def dashboard():
+        return service().dashboard()
 
     @app.get("/operations")
     def operations():
@@ -164,10 +172,14 @@ def create_app(database_url=None, provider=None, today=None):
         return service().agent_performance()
 
     @app.get("/journal")
-    def journal():
+    def journal(limit: int | None = Query(default=None, ge=1, le=1000)):
+        """Full chain verification. Without `limit`, every event is returned with its payload."""
         result = service().store.verify()
         with service().store.engine.connect() as conn:
-            result["events"] = service().store.all_events(conn)
+            if limit is None:
+                result["events"] = service().store.all_events(conn)
+            else:
+                result["events"] = service().store.recent_events(conn, limit)[::-1]
         return result
 
     return app

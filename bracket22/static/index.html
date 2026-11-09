@@ -1,32 +1,129 @@
 <!doctype html>
 <html lang="fr">
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Bracket22 Mini — Desk de recherche</title><link rel="stylesheet" href="/static/style.css"><script src="/static/app.js" defer></script></head>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>Bracket22 Mini — Desk de recherche</title>
+<link rel="stylesheet" href="/static/style.css">
+<script src="/static/app.js" defer></script>
+</head>
 <body>
-<aside><a class="brand" href="/">b22<span>MINI</span></a><div class="side-label">DESK PERSONNEL</div><nav><a href="#overview">Vue d’ensemble</a><a href="#research">Recherche</a><a href="#portfolio">Portefeuille</a><a href="#agent-roles">Rôle des agents</a><a href="#agents">Performance des agents</a><a href="#journal">Journal</a></nav><div class="side-foot"><span class="dot"></span> PAPER TRADING<br><small>Aucun ordre réel</small></div></aside>
-<main id="overview"><header><div class="eyebrow">RESEARCH / MISSION CONTROL</div><span id="date"></span></header>
-<section class="heading"><div><h1>Une idée. Des preuves.</h1><p>Votre desk de recherche, de l’analyse à la décision.</p></div><button id="run">Lancer l’analyse quotidienne <span>↗</span></button></section>
-<div class="notice"><b id="source-title">Chargement de la source</b><span id="source-description">Agents déterministes · Capital virtuel en EUR</span></div>
-<div id="message" role="status" aria-live="polite"></div>
-<form id="auth" hidden><label>Jeton d’accès <input id="token" type="password" autocomplete="off" required></label><button>Déverrouiller</button></form>
-<section class="stats"><article><span>VALEUR DU PORTEFEUILLE</span><strong id="equity">100 000 €</strong><small id="pnl">Capital virtuel initial</small></article><article><span>DISPONIBLE</span><strong id="cash">100 000 €</strong><small>Liquidités en EUR</small></article><article><span>RÉGIME DU MARCHÉ</span><strong id="regime">À analyser</strong><small>SPY / moyenne 200 séances</small></article><article><span>UNIVERS SUIVI</span><strong>20 <em>actifs</em></strong><small>Actions et ETF · sans crypto</small></article></section>
-<section class="research-grid" id="research"><article class="panel"><div class="panel-title"><h2>Le radar</h2><span id="count">Aucune analyse</span></div><p class="caption">Classement Houston · Cliquez sur un actif pour examiner les preuves.</p><div id="pending-assets"></div><p class="caption">Nouveaux titres : SpaceX (SPCX), Walmart (WMT), Lam Research (LRCX). SpaceX : historique récent, analyse complète disponible à partir de 260 séances.</p><div class="table-wrap"><table><thead><tr><th>Actif</th><th>Score</th><th>Confiance</th><th>Risque</th><th>Décision</th></tr></thead><tbody id="reports"><tr><td colspan="5" class="empty">Lancez une analyse pour découvrir le radar.</td></tr></tbody></table></div></article><article class="panel rules"><div class="panel-title"><h2>Le cadre de risque</h2><span class="pill">Déterministe</span></div><dl><div><dt>Par position</dt><dd>5 %</dd></div><div><dt>Par secteur</dt><dd>25 %</dd></div><div><dt>Cryptomonnaies</dt><dd>Exclues</dd></div><div><dt>Nouvelles positions / jour</dt><dd>3</dd></div><div><dt>Score minimum</dt><dd>7 / 10</dd></div><div><dt>Confiance minimum</dt><dd>60 %</dd></div></dl><p>Données absentes ou périmées : rejet. Chaque approbation déclenche un nouveau contrôle.</p></article></section>
-<section id="detail" class="panel" hidden></section>
-<section class="panel" id="portfolio"><div class="panel-title"><h2>Portefeuille paper</h2><span>Validation humaine uniquement</span></div><div id="positions" class="empty">Aucune position ouverte.</div></section>
-<section class="panel" aria-label="Suivi des traitements"><h2>Suivi des mises à jour</h2><p id="operations">Chargement…</p><p class="caption">Traitement prévu à 07:00 UTC lorsque le planificateur est lancé. Reprise des échecs après une heure. Le Mac doit rester allumé et éveillé.</p></section>
-<section class="panel" id="agent-roles" aria-label="Rôle des agents">
-<div class="panel-title"><h2>Qui fait quoi dans votre desk ?</h2><span>De la recherche à votre décision</span></div>
-<p class="caption">Steffi et Desmond examinent les mêmes données sous deux angles. La Red Team les contredit, puis Houston synthétise. Aucun agent ne passe d’ordre.</p>
-<div class="detail-grid">
-<article><h3>Steffi · L’analyste technique</h3><p><b>Question :</b> la tendance des prix est-elle favorable ?</p><p>Elle interprète les moyennes mobiles, le momentum, le RSI, les supports et les résistances. Elle explique la tendance et ce qui invaliderait son scénario.</p><p><b>Modèle configuré :</b> GPT‑5.6 Luna · effort maximal.</p></article>
-<article><h3>Desmond · L’analyste quantitatif</h3><p><b>Question :</b> les statistiques soutiennent-elles cette idée ?</p><p>Il examine les rendements historiques, la volatilité, les pertes maximales, la corrélation avec SPY et la solidité de l’échantillon. Il distingue un résultat prometteur d’une preuve trop fragile.</p><p><b>Modèle configuré :</b> GPT‑5.6 Luna · effort maximal.</p></article>
-<article><h3>Red Team · Le contradicteur</h3><p><b>Question :</b> pourquoi cette idée pourrait-elle échouer ?</p><p>Elle recherche les contradictions, les données manquantes et les faiblesses des deux analyses. Son veto bloque la proposition ; Houston ne peut pas le contourner.</p><p><b>Modèle configuré :</b> GPT‑5.6 Sol · effort élevé.</p></article>
-<article><h3>Houston · Le coordinateur</h3><p><b>Question :</b> que retenir de l’ensemble du dossier ?</p><p>Il synthétise les avis, attribue un score et une confiance, puis propose une idée à examiner ou une simple surveillance. Son avis passe encore par le contrôle de risque.</p><p><b>Modèle configuré :</b> GPT‑5.6 Sol · effort élevé.</p></article>
-</div>
-<p><b>Les calculs :</b> des outils Python produisent tous les indicateurs et les stops. Les agents les interprètent ; leurs scores et confiances restent des jugements non calibrés.</p>
-<p><b>Le moteur de risque :</b> il applique des règles fixes sur les positions, secteurs, données et seuils. Ce n’est pas un LLM.</p>
-<p><b>Vous :</b> vous approuvez ou refusez chaque achat paper et décidez des clôtures. Les actualités et les fondamentaux ne sont pas encore intégrés aux analyses.</p>
-</section>
-<section class="panel" id="agents"><div class="panel-title"><h2>Des convictions à l’épreuve du temps</h2><label>Horizon <select id="horizon"><option value="1">J+1</option><option value="5">J+5</option><option value="20" selected>J+20</option><option value="60">J+60</option></select></label></div><p class="caption">Rendements des signaux longs. Les observations apparaissent seulement à maturité.</p><div id="agent-stats" class="agent-grid"></div><button class="secondary" id="refresh">Actualiser les mesures</button></section>
-<section class="panel" id="journal"><div class="panel-title"><h2>Journal des décisions</h2><span id="integrity">En attente</span></div><p class="caption">Historique append-only · Analyses, validations, simulations et mesures différées.</p><div id="events"></div></section>
-<footer>Bracket22 Mini / V1 <span>Recherche expérimentale. Les analyses expérimentales ne démontrent aucun avantage de marché.</span></footer>
-</main></body></html>
+<a class="skip" href="#main">Aller au contenu</a>
+<aside class="sidebar">
+  <a class="brand" href="/" aria-label="Bracket22 Mini">b22<span>MINI</span></a>
+  <div class="side-label">Desk personnel</div>
+  <nav aria-label="Sections">
+    <a href="#overview"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 13h6V4H4zM14 20h6v-9h-6zM4 20h6v-3H4zM14 7h6V4h-6z"/></svg>Vue d’ensemble</a>
+    <a href="#research"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3"/><path d="M12 4v3M20 12h-3"/></svg>Recherche</a>
+    <a href="#portfolio"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8h16v11H4zM9 8V5h6v3M4 13h16"/></svg>Portefeuille</a>
+    <a href="#agent-roles"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="8" cy="9" r="3"/><circle cx="17" cy="10" r="2.3"/><path d="M3 19c.6-3 2.6-4.5 5-4.5s4.4 1.5 5 4.5M14.5 18.5c.4-2 1.4-3.2 3-3.2 1.7 0 2.8 1.3 3.2 3.2"/></svg>Rôle des agents</a>
+    <a href="#agents"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19V5M4 19h16M8 15l3.5-4 3 2.5L19 8"/></svg>Performance</a>
+    <a href="#journal"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 4h12v16H6zM9 8h6M9 12h6M9 16h3"/></svg>Journal</a>
+  </nav>
+  <div class="side-foot">
+    <button type="button" id="theme" class="ghost" aria-label="Basculer le thème clair ou sombre"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 14.5A8 8 0 0 1 9.5 4 8 8 0 1 0 20 14.5z"/></svg><span>Thème</span></button>
+    <div class="paper"><span class="dot"></span>Paper trading<small>Aucun ordre réel</small></div>
+  </div>
+</aside>
+
+<main id="main">
+  <header class="topbar" id="overview">
+    <div class="eyebrow">Research / Mission control</div>
+    <div class="topbar-right"><span id="source-chip" class="chip">Chargement…</span><time id="date"></time></div>
+  </header>
+
+  <section class="hero">
+    <div><h1>Une idée. Des preuves.</h1><p>Votre desk de recherche, de l’analyse à la décision.</p></div>
+    <button id="run" class="primary">Lancer l’analyse quotidienne <span aria-hidden="true">↗</span></button>
+  </section>
+
+  <div class="notice"><b id="source-title">Chargement de la source</b><span id="source-description">Capital virtuel en EUR</span></div>
+
+  <form id="auth" class="panel auth" hidden>
+    <h2>Desk verrouillé</h2>
+    <p class="caption">Le jeton reste en mémoire, uniquement pour cette session.</p>
+    <div class="auth-row"><label for="token">Jeton d’accès</label><input id="token" type="password" autocomplete="off" required><button class="primary">Déverrouiller</button></div>
+  </form>
+
+  <section class="stats" aria-label="Indicateurs clés">
+    <article><span class="label">Valeur du portefeuille</span><strong id="equity" class="skeleton">100 000 €</strong><small id="pnl">Capital virtuel initial</small></article>
+    <article><span class="label">Disponible</span><strong id="cash" class="skeleton">100 000 €</strong><small id="invested">Liquidités en EUR</small></article>
+    <article><span class="label">Régime du marché</span><strong id="regime" class="skeleton">À analyser</strong><small>SPY / moyenne 200 séances</small></article>
+    <article><span class="label">Univers suivi</span><strong><span id="universe">20</span> <em>actifs</em></strong><small id="count">Aucune analyse</small></article>
+  </section>
+
+  <section class="research-grid" id="research">
+    <article class="panel">
+      <div class="panel-title"><h2>Le radar</h2><div class="filters" id="filters" role="group" aria-label="Filtrer le radar">
+        <button type="button" data-filter="all" aria-pressed="true">Tous</button><button type="button" data-filter="APPROVED" aria-pressed="false">Admissibles</button><button type="button" data-filter="WATCH" aria-pressed="false">À suivre</button><button type="button" data-filter="REJECTED" aria-pressed="false">Rejetés</button>
+      </div></div>
+      <p class="caption">Classement Houston · Cliquez sur un actif pour examiner les preuves.</p>
+      <div id="pending-assets" class="pending"></div>
+      <div class="table-wrap"><table>
+        <thead><tr><th>Actif</th><th class="hide-sm">60 séances</th><th>Score</th><th>Confiance</th><th>Risque</th><th>Décision</th></tr></thead>
+        <tbody id="reports"><tr><td colspan="6" class="empty">Chargement du radar…</td></tr></tbody>
+      </table></div>
+      <p class="caption foot">SpaceX (SPCX) : historique récent, analyse complète disponible à partir de 260 séances.</p>
+    </article>
+    <article class="panel rules">
+      <div class="panel-title"><h2>Le cadre de risque</h2><span class="pill">Déterministe</span></div>
+      <dl>
+        <div><dt>Par position</dt><dd>5 %</dd></div>
+        <div><dt>Par secteur</dt><dd>25 %</dd></div>
+        <div><dt>Cryptomonnaies</dt><dd>Exclues</dd></div>
+        <div><dt>Nouvelles positions / jour</dt><dd>3</dd></div>
+        <div><dt>Score minimum</dt><dd>7 / 10</dd></div>
+        <div><dt>Confiance minimum</dt><dd>60 %</dd></div>
+      </dl>
+      <p>Données absentes ou périmées : rejet. Chaque approbation déclenche un nouveau contrôle.</p>
+    </article>
+  </section>
+
+  <section class="panel" id="portfolio">
+    <div class="panel-title"><h2>Portefeuille paper</h2><span class="meta">Validation humaine uniquement</span></div>
+    <div id="positions" class="empty">Aucune position ouverte.</div>
+  </section>
+
+  <section class="panel compact" aria-label="Suivi des traitements">
+    <div class="panel-title"><h2>Suivi des mises à jour</h2><span id="operations-status" class="pill">—</span></div>
+    <p id="operations">Chargement…</p>
+    <p class="caption">Traitement prévu à 07:00 UTC lorsque le planificateur est lancé. Reprise des échecs après une heure.</p>
+  </section>
+
+  <section class="panel" id="agent-roles" aria-label="Rôle des agents">
+    <div class="panel-title"><h2>Qui fait quoi dans votre desk ?</h2><span class="meta">De la recherche à votre décision</span></div>
+    <ol class="flow" aria-label="Chaîne de décision"><li>Données</li><li>Steffi · Desmond</li><li>Red Team</li><li>Houston</li><li>Moteur de risque</li><li class="you">Vous</li><li>Paper</li></ol>
+    <div class="role-grid">
+      <article data-role="Steffi"><span class="avatar">S</span><h3>Steffi <small>L’analyste technique</small></h3><p class="question">La tendance des prix est-elle favorable ?</p><p>Elle interprète les moyennes mobiles, le momentum, le RSI, les supports et les résistances, et précise ce qui invaliderait son scénario.</p><p class="model" data-model="Steffi"></p></article>
+      <article data-role="Desmond"><span class="avatar">D</span><h3>Desmond <small>L’analyste quantitatif</small></h3><p class="question">Les statistiques soutiennent-elles cette idée ?</p><p>Il examine rendements historiques, volatilité, pertes maximales, corrélation avec SPY et solidité de l’échantillon.</p><p class="model" data-model="Desmond"></p></article>
+      <article data-role="Red Team"><span class="avatar red">R</span><h3>Red Team <small>Le contradicteur</small></h3><p class="question">Pourquoi cette idée pourrait-elle échouer ?</p><p>Elle recherche contradictions, données manquantes et faiblesses. Son veto bloque la proposition ; Houston ne peut pas le contourner.</p><p class="model" data-model="Red Team"></p></article>
+      <article data-role="Houston"><span class="avatar">H</span><h3>Houston <small>Le coordinateur</small></h3><p class="question">Que retenir de l’ensemble du dossier ?</p><p>Il synthétise les avis, attribue un score et une confiance, puis propose une idée à examiner ou une simple surveillance.</p><p class="model" data-model="Houston"></p></article>
+    </div>
+    <ul class="principles">
+      <li><b>Les calculs</b> Des outils Python produisent tous les indicateurs et les stops. Les agents les interprètent ; leurs scores restent des jugements non calibrés.</li>
+      <li><b>Le moteur de risque</b> Il applique des règles fixes sur les positions, secteurs, données et seuils. Ce n’est pas un LLM.</li>
+      <li><b>Vous</b> Vous approuvez ou refusez chaque achat paper et décidez des clôtures. Actualités et fondamentaux ne sont pas encore intégrés.</li>
+    </ul>
+  </section>
+
+  <section class="panel" id="agents">
+    <div class="panel-title"><h2>Des convictions à l’épreuve du temps</h2><label class="select">Horizon <select id="horizon"><option value="1">J+1</option><option value="5">J+5</option><option value="20" selected>J+20</option><option value="60">J+60</option></select></label></div>
+    <p class="caption">Rendements des signaux longs. Les observations apparaissent seulement à maturité.</p>
+    <div id="agent-stats" class="agent-grid"></div>
+    <button class="secondary" id="refresh">Actualiser les mesures</button>
+  </section>
+
+  <section class="panel" id="journal">
+    <div class="panel-title"><h2>Journal des décisions</h2><span id="integrity" class="pill">En attente</span></div>
+    <p class="caption">Historique append-only chaîné SHA-256 · Analyses, validations, simulations et mesures différées.</p>
+    <div id="events" class="timeline"></div>
+  </section>
+
+  <footer>Bracket22 Mini / V1 <span>Recherche expérimentale. Les analyses ne démontrent aucun avantage de marché.</span></footer>
+</main>
+
+<dialog id="detail" aria-labelledby="detail-title"></dialog>
+<div id="message" role="status" aria-live="polite" popover="manual"></div>
+</body>
+</html>
